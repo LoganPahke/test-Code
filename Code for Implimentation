@@ -1,0 +1,64 @@
+import pandas as pd
+import numpy as np
+
+def calculate_lab_recommendations(new_job_request, constraints_df):
+    """
+    new_job_request: { 'Voltage': 1000, 'TestType': 'Standard Motor', 'Site': 'MEL Lab' }
+    constraints_df: The dataframe from 'Constraints for Cells'
+    """
+    # 1. CLEANING DATA: Fill merged cells and normalize site names
+    constraints_df['Cells'] = constraints_df['Cells'].ffill()
+    constraints_df['Voltage Max'] = pd.to_numeric(constraints_df['Voltage Max'].ffill(), errors='coerce')
+    constraints_df['Test Type'] = constraints_df['Test Type'].ffill()
+    
+    # Check if 'Site Location' exists; if not, you must add it to your Excel
+    if 'Site Location' not in constraints_df.columns:
+        # Placeholder mapping for demonstration:
+        # (Recommendation: Add this column to your source Excel file)
+        constraints_df['Site Location'] = "MEL Lab" 
+    
+    # 2. MATCHING LOGIC
+    scored_cells = []
+    
+    # Process each unique cell
+    unique_cells = constraints_df.groupby('Cells').first().reset_index()
+
+    for _, cell in unique_cells.iterrows():
+        score = 0
+        
+        # --- CONSTRAINT 1: Voltage Limit (Hard Gate) ---
+        # If the cell cannot handle the voltage, it is disqualified (score = -1)
+        req_v = 1000 if "1000" in str(new_job_request['Voltage']) else 80
+        if cell['Voltage Max'] < req_v:
+            continue 
+            
+        # --- CONSTRAINT 2: Specialized Test Type (Weight: 100) ---
+        if str(new_job_request['TestType']).lower() in str(cell['Test Type']).lower():
+            score += 100
+            
+        # --- CONSTRAINT 3: Site Location (Weight: 50) ---
+        # Matches the specific sites: MEL Lab, Mexico Lab, India Lab, or Carver-Moline Lab
+        if str(new_job_request['Site']).strip().lower() == str(cell['Site Location']).strip().lower():
+            score += 50
+            
+        scored_cells.append({
+            'CellID': cell['Cells'],
+            'FinalScore': score,
+            'Site': cell['Site Location'],
+            'Capability': cell['Test Type']
+        })
+
+    # Sort results: Highest score first
+    recommendations = sorted(scored_cells, key=lambda x: x['FinalScore'], reverse=True)
+    return recommendations
+
+# --- POWER AUTOMATE MOCK TRIGGER ---
+# These values come from your Power Apps "Test Job" Table
+input_job = {
+    "Voltage": "High Limit (1000)", 
+    "TestType": "VCB2 - Standard Motor",
+    "Site": "Mexico Lab" # One of the 4 Site IDs
+}
+
+# Example Output
+# results = calculate_lab_recommendations(input_job, df_constraints)

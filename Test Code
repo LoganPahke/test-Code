@@ -1,72 +1,40 @@
-from gettext import install
-import pip
-
-pip :install PyPowerAutomate
-definition.json
-from pypowerautomate.flow import Flow
-from pypowerautomate.triggers import ManualTrigger
-from pypowerautomate.actions import InitVariableAction, VariableTypes
-
-# Initialize the flow
-my_flow = Flow(name="My_Local_Flow")
-
-# Add a trigger
-my_flow.set_trigger(ManualTrigger())
-
-# Add an action
-my_flow.add_action(InitVariableAction(
-    name="Greeting", 
-    var_type=VariableTypes.string, 
-    value="Hello from Python!"
-))
-
-# Export as a legacy package (ZIP)
-my_flow.export_package("my_flow_package.zip")
-
-
-import requests
-
-url = "YOUR_POWER_AUTOMATE_HTTP_URL_HERE"
-data = {
-    "message": "Start the engine!",
-    "sender": "Local Python Script"
-}
-
-response = requests.post(url, json=data)
-print(f"Status Code: {response.status_code}")
-
-
-
-# Implimenting the Test request to the Power Automate HTTP trigger
 import json
 import os
 from datetime import datetime
 
-# 1. Capture the Input Variable from Power Automate
+# 1. Capture the Input Variable from Power Automate Desktop
+# Ensure you have created an Input Variable named DataverseRowJson in PAD
 raw_input = "%DataverseRowJson%"
 
 def process_test_job(json_data):
     try:
-        # 2. Parse the JSON
+        # 2. Parse the JSON sent from the Cloud
         data = json.loads(json_data)
         
         job_id = data.get("job_id", "N/A")
         job_name = data.get("job_name", "Untitled Job")
         priority = data.get("priority", "Normal")
         
-        # 3. YOUR PROGRAMMING LOGIC
-        # Example: Triggering a local build or specialized test script
-        log_entry = f"[{datetime.now()}] STARTING TEST: {job_name} (ID: {job_id}) | Priority: {priority}\n"
-        
-        # Writing to a local file as proof of work
+        # 3. YOUR DECISION LOGIC
+        # This is where you decide the Cell Assignment
+        if "heavy" in job_name.lower() or (isinstance(priority, int) and priority > 5):
+            assignment = "Cell A"
+        else:
+            assignment = "Cell B"
+            
+        # 4. LOGGING (Optional - for your own records)
+        log_entry = f"[{datetime.now()}] Job: {job_name} -> Assigned to: {assignment}\n"
         path = os.path.join(os.path.expanduser("~"), "Documents", "TestJobs_Log.txt")
         with open(path, "a") as f:
             f.write(log_entry)
             
-        print(f"Successfully initiated Job: {job_name}")
+        # 5. THE OUTPUT
+        # This print statement is what Power Automate Desktop captures 
+        # to send back to the Cloud Flow.
+        print(assignment)
         
     except Exception as e:
         print(f"Python Error: {str(e)}")
 
-# Execute
-process_test_job(raw_input) 
+# Execute the function
+process_test_job(raw_input)
